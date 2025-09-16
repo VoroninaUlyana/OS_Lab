@@ -1,20 +1,88 @@
-﻿// OS_Lab1.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-//
-
+﻿#include <windows.h>
+#include <process.h>
 #include <iostream>
+#include <cstdlib>
+#include <ctime>
+using namespace std;
 
-int main()
+struct ThreadData 
 {
-    std::cout << "Hello World!\n";
+    int* array;
+    int size;
+};
+
+unsigned __stdcall workerThread(void* param) 
+{
+    cout << "Worker thread started. Implementation pending..." << endl;
+    ThreadData* data = (ThreadData*)param;
+    delete[] data->array;
+    delete data;
+    return 0;
 }
 
-// Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
-// Отладка программы: F5 или меню "Отладка" > "Запустить отладку"
+int main() 
+{
+    int size;
+    DWORD suspendTime;
+    int choice;
+    cout << "Enter array size: ";
+    cin >> size;
+    if (size <= 0) 
+    {
+        cerr << "Invalid array size!" << endl;
+        return 1;
+    }
+    int* arr = new int[size];
+    cout << "Generate array randomly? (1 - Yes, 0 - No): ";
+    cin >> choice;
+    if (choice == 1) 
+    {
+        srand(time(nullptr));
+        cout << "Generated array: ";
+        for (int i = 0; i < size; ++i) 
+        {
+            arr[i] = rand() % 100 - 50;
+            cout << arr[i] << " ";
+        }
+        cout << endl;
+    }
+    else 
+    {
+        cout << "Enter " << size << " elements:" << endl;
+        for (int i = 0; i < size; ++i) 
+        {
+            cin >> arr[i];
+        }
+    }
+    cout << "Enter suspend time for worker thread (ms): ";
+    cin >> suspendTime;
+    ThreadData* data = new ThreadData;
+    data->array = arr;
+    data->size = size;
+    HANDLE hThread = (HANDLE)_beginthreadex(
+        nullptr,    
+        0,         
+        &workerThread, 
+        (void*)data,   
+        CREATE_SUSPENDED, 
+        nullptr     
+    );
+    if (hThread == NULL) 
+    {
+        cerr << "Failed to create thread!" << endl;
+        delete[] arr;
+        delete data;
+        return 1;
+    }
+    cout << "Thread created in suspended state. Suspending for " << suspendTime << " ms..." << endl;
+    Sleep(suspendTime);
+    ResumeThread(hThread);
+    cout << "Thread resumed!" << endl;
+    cout << "Main thread waiting for worker to finish..." << endl;
+    WaitForSingleObject(hThread, INFINITE);
+    cout << "Closing thread handle..." << endl;
+    CloseHandle(hThread);
+    cout << "Main thread exiting." << endl;
 
-// Советы по началу работы 
-//   1. В окне обозревателя решений можно добавлять файлы и управлять ими.
-//   2. В окне Team Explorer можно подключиться к системе управления версиями.
-//   3. В окне "Выходные данные" можно просматривать выходные данные сборки и другие сообщения.
-//   4. В окне "Список ошибок" можно просматривать ошибки.
-//   5. Последовательно выберите пункты меню "Проект" > "Добавить новый элемент", чтобы создать файлы кода, или "Проект" > "Добавить существующий элемент", чтобы добавить в проект существующие файлы кода.
-//   6. Чтобы снова открыть этот проект позже, выберите пункты меню "Файл" > "Открыть" > "Проект" и выберите SLN-файл.
+    return 0;
+}
