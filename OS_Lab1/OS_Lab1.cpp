@@ -13,10 +13,21 @@ struct ThreadData
 
 unsigned __stdcall workerThread(void* param) 
 {
-    cout << "Worker thread started. Implementation pending..." << endl;
     ThreadData* data = (ThreadData*)param;
+    int oddCount = 0;
+    cout << "\nWorker Thread: Processing array..." << endl;
+    for (int i = 0; i < data->size; ++i) 
+    {
+        if (data->array[i] % 2 != 0) 
+        { 
+            oddCount++;
+        }
+        Sleep(100);
+    }
+    cout << "Worker Thread: Number of odd elements is " << oddCount << endl;
     delete[] data->array;
     delete data;
+
     return 0;
 }
 
@@ -64,7 +75,7 @@ int main()
         0,         
         &workerThread, 
         (void*)data,   
-        CREATE_SUSPENDED, 
+        0, 
         nullptr     
     );
     if (hThread == NULL) 
@@ -74,10 +85,13 @@ int main()
         delete data;
         return 1;
     }
-    cout << "Thread created in suspended state. Suspending for " << suspendTime << " ms..." << endl;
+    Sleep(100);
+    SuspendThread(hThread);
+    cout << "Thread explicitly suspended with SuspendThread." << endl;
+    cout << "Suspending for " << suspendTime << " ms..." << endl;
     Sleep(suspendTime);
     ResumeThread(hThread);
-    cout << "Thread resumed!" << endl;
+    cout << "Thread resumed with ResumeThread!" << endl;
     cout << "Main thread waiting for worker to finish..." << endl;
     WaitForSingleObject(hThread, INFINITE);
     cout << "Closing thread handle..." << endl;
