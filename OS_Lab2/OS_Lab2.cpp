@@ -89,5 +89,22 @@ void parent_mode(const char* exePath)
 
 void child_mode() 
 {
-    cout << "[Child] Child mode placeholder.\n";
+     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+ HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+
+ int n;
+ DWORD bytesRead;
+ if (!ReadFile(hStdin, &n, sizeof(int), &bytesRead, NULL) || bytesRead == 0)
+     return;
+
+ vector<int> arr(n);
+ ReadFile(hStdin, arr.data(), n * sizeof(int), &bytesRead, NULL);
+
+ int evenCount = 0;
+ for (int x : arr)
+     if (x % 2 == 0)
+         evenCount++;
+
+ DWORD bytesWritten;
+ WriteFile(hStdout, &evenCount, sizeof(int), &bytesWritten, NULL);
 }
