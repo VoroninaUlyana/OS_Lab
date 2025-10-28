@@ -1,0 +1,65 @@
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Bb]in/
+[Oo]bj/
+Debug/
+Release/
+x64/
+x86/
+ipch/
+*.ilk
+*.pdb
+*.idb
+*.iobj
+*.ipdb
+*.exp
+*.log
+
+# Visual Studio
+.vs/
+
+# Generated files
+*.tlog
+*.lastbuildstate
+*.iobj
+*.ipdb
+
+# Compiled Static/Dynamic Libraries
+*.lib
+*.a
+*.dll
+*.so
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Precompiled headers
+*.pch
+*.gch
+
+# Fortran module files (если используются)
+*.mod
+*.smod
+
+# Debug info
+*.dwo
+*.d
+
+# CMake (если используешь)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Other temporary files
+*.log
+*.tmp
