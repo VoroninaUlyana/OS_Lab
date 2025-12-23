@@ -1,20 +1,78 @@
-﻿// Worker.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-//
-
-#include <iostream>
-
-int main()
+﻿#include <iostream>
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <algorithm> 
+#include <numeric>   
+#include <cmath>     
+#include "C:/OS/Lab5/Browser/Protocol.h" 
+using namespace std;
+Result ProcessData(const Task& task) 
 {
-    std::cout << "Hello World!\n";
+    Result res = { 0.0, 0.0 };
+    if (task.size <= 0) 
+    {
+        return res; 
+    }
+    vector<double> v(task.data, task.data + task.size);
+    sort(v.begin(), v.end());
+    if (task.size % 2 == 0) 
+    {
+        res.median = (v[task.size / 2 - 1] + v[task.size / 2]) / 2.0;
+    }
+    else 
+    {
+        res.median = v[task.size / 2];
+    }
+    double sum = accumulate(v.begin(), v.end(), 0.0);
+    double mean = sum / task.size;
+    double sq_sum = 0.0;
+    for (double x : v) 
+    {
+        sq_sum += pow(x - mean, 2);
+    }
+    res.stdDev = sqrt(sq_sum / task.size);
+    return res;
 }
-
-// Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
-// Отладка программы: F5 или меню "Отладка" > "Запустить отладку"
-
-// Советы по началу работы 
-//   1. В окне обозревателя решений можно добавлять файлы и управлять ими.
-//   2. В окне Team Explorer можно подключиться к системе управления версиями.
-//   3. В окне "Выходные данные" можно просматривать выходные данные сборки и другие сообщения.
-//   4. В окне "Список ошибок" можно просматривать ошибки.
-//   5. Последовательно выберите пункты меню "Проект" > "Добавить новый элемент", чтобы создать файлы кода, или "Проект" > "Добавить существующий элемент", чтобы добавить в проект существующие файлы кода.
-//   6. Чтобы снова открыть этот проект позже, выберите пункты меню "Файл" > "Открыть" > "Проект" и выберите SLN-файл.
+int main(int argc, char* argv[]) 
+{
+    if (argc < 2) 
+    {
+        cerr << "Worker: No ID provided!" << endl;
+        return 1;
+    }
+    int id = atoi(argv[1]); 
+    wstring pipeNameIn = L"\\\\.\\pipe\\worker_in_" + to_wstring(id);
+    wstring pipeNameOut = L"\\\\.\\pipe\\worker_out_" + to_wstring(id);
+    HANDLE hPipeIn = CreateFile(pipeNameIn.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
+    HANDLE hPipeOut = CreateFile(pipeNameOut.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    if (hPipeIn == INVALID_HANDLE_VALUE || hPipeOut == INVALID_HANDLE_VALUE) 
+    {
+        cerr << "Worker " << id << ": Failed to connect to pipes." << endl;
+        return 1;
+    }
+    wcout << L"Worker " << id << L" started." << endl;
+    Task task;
+    DWORD bytesRead, bytesWritten;
+    bool running = true;
+    while (running) 
+    {
+        if (!ReadFile(hPipeIn, &task, sizeof(Task), &bytesRead, NULL)) 
+        {
+            break; 
+        }
+        if (task.type == TASK_STOP) 
+        {
+            wcout << L"Worker " << id << L": Received STOP signal." << endl;
+            running = false;
+        }
+        else if (task.type == TASK_CALCULATE) 
+        {
+            Result res = ProcessData(task);
+            WriteFile(hPipeOut, &res, sizeof(Result), &bytesWritten, NULL);
+        }
+    }
+    CloseHandle(hPipeIn);
+    CloseHandle(hPipeOut);
+    return 0;
+}
