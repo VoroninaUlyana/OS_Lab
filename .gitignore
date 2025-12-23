@@ -1,0 +1,23 @@
+# Игнорировать папки сборки
+Debug/
+Release/
+x64/
+x86/
+build/
+
+# Игнорировать временные файлы Visual Studio
+.vs/
+*.user
+*.suo
+*.db
+*.opensdf
+*.sdf
+*.ipch
+*.ap
+
+# Игнорировать скомпилированные файлы
+*.exe
+*.dll
+*.obj
+*.pdb
+*.ilk
