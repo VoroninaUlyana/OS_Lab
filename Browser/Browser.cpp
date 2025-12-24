@@ -10,8 +10,15 @@ struct WorkerInfo
     HANDLE hPipeOut;     
     PROCESS_INFORMATION pi; 
 };
+void SafePrint(HANDLE hMutex, const string& msg) 
+{
+    WaitForSingleObject(hMutex, INFINITE);
+    cout << msg;
+    ReleaseMutex(hMutex);
+}
 int main() 
 {
+    HANDLE hConsoleMutex = CreateMutex(NULL, FALSE, CONSOLE_MUTEX_NAME.c_str());
     int N, M;
     cout << "Enter number of workers (N): ";
     cin >> N;
@@ -55,7 +62,7 @@ int main()
             cmdBuffer.data(),   
             NULL, NULL,        
             FALSE,              
-            CREATE_NEW_CONSOLE, 
+            0, 
             NULL, NULL,        
             &si,                
             &workers[i].pi     
@@ -66,20 +73,31 @@ int main()
         ConnectNamedPipe(workers[i].hPipeIn, NULL);
         ConnectNamedPipe(workers[i].hPipeOut, NULL);
     }
+    WaitForSingleObject(hConsoleMutex, INFINITE);
     cout << "All workers started and connected." << endl;
     cout << "Starting task distribution..." << endl;
+    ReleaseMutex(hConsoleMutex);
     for (int i = 0; i < M; ++i) 
     {
         int workerIndex = i % N; 
         Task task;
         task.type = TASK_CALCULATE;
         task.size = 5 + (rand() % 10); 
+        WaitForSingleObject(hConsoleMutex, INFINITE);
         cout << "\n[Task " << i << "] Sending to Worker " << workerIndex
             << " (Array size: " << task.size << ")...";
-        for (int k = 0; k < task.size; ++k) 
+        cout << "   Data: [ "; 
+        for (int k = 0; k < task.size; ++k)
         {
             task.data[k] = (double)(rand() % 100);
+            cout << task.data[k];
+            if (k < task.size - 1) 
+            {
+                cout << ", ";
+            }
         }
+        cout << " ]" << endl; 
+        ReleaseMutex(hConsoleMutex);
         DWORD bytesWritten;
         if (!WriteFile(workers[workerIndex].hPipeIn, &task, sizeof(Task), &bytesWritten, NULL)) 
         {
@@ -90,9 +108,11 @@ int main()
         DWORD bytesRead;
         if (ReadFile(workers[workerIndex].hPipeOut, &res, sizeof(Result), &bytesRead, NULL)) 
         {
+            WaitForSingleObject(hConsoleMutex, INFINITE);
             cout << " Done." << endl;
             cout << "   -> Median: " << res.median << endl;
             cout << "   -> StdDev: " << res.stdDev << endl;
+            ReleaseMutex(hConsoleMutex);
         }
         else 
         {
@@ -114,6 +134,7 @@ int main()
         CloseHandle(workers[i].pi.hThread);
     }
     cout << "Browser finished." << endl;
+    CloseHandle(hConsoleMutex);
     system("pause"); 
     return 0;
 }

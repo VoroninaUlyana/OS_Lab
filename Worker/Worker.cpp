@@ -41,7 +41,8 @@ int main(int argc, char* argv[])
         cerr << "Worker: No ID provided!" << endl;
         return 1;
     }
-    int id = atoi(argv[1]); 
+    int id = atoi(argv[1]);
+    HANDLE hConsoleMutex = CreateMutex(NULL, FALSE, CONSOLE_MUTEX_NAME.c_str());
     wstring pipeNameIn = L"\\\\.\\pipe\\worker_in_" + to_wstring(id);
     wstring pipeNameOut = L"\\\\.\\pipe\\worker_out_" + to_wstring(id);
     HANDLE hPipeIn = CreateFile(pipeNameIn.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
@@ -51,7 +52,9 @@ int main(int argc, char* argv[])
         cerr << "Worker " << id << ": Failed to connect to pipes." << endl;
         return 1;
     }
+    WaitForSingleObject(hConsoleMutex, INFINITE);
     wcout << L"Worker " << id << L" started." << endl;
+    ReleaseMutex(hConsoleMutex);
     Task task;
     DWORD bytesRead, bytesWritten;
     bool running = true;
@@ -63,7 +66,9 @@ int main(int argc, char* argv[])
         }
         if (task.type == TASK_STOP) 
         {
+            WaitForSingleObject(hConsoleMutex, INFINITE);
             wcout << L"Worker " << id << L": Received STOP signal." << endl;
+            ReleaseMutex(hConsoleMutex);
             running = false;
         }
         else if (task.type == TASK_CALCULATE) 
@@ -72,6 +77,7 @@ int main(int argc, char* argv[])
             WriteFile(hPipeOut, &res, sizeof(Result), &bytesWritten, NULL);
         }
     }
+    CloseHandle(hConsoleMutex);
     CloseHandle(hPipeIn);
     CloseHandle(hPipeOut);
     return 0;
