@@ -12,7 +12,7 @@ struct ThreadData
 
 unsigned __stdcall workerThread(void* param) 
 {
-    ThreadData* data = (ThreadData*)param;
+    ThreadData* data = static_cast<ThreadData*>(param);
     int oddCount = 0;
     std::cout << "\nWorker Thread: Processing array..." << std::endl;
     for (int i = 0; i < data->size; ++i) 
@@ -53,7 +53,7 @@ int main()
     std::cin >> choice;
     if (choice == 1) 
     {
-        srand(time(nullptr));
+        srand(static_cast<unsigned int>(time(nullptr)));
         std::cout << "Generated array: ";
         for (int i = 0; i < size; ++i) 
         {
@@ -82,7 +82,7 @@ int main()
     unsigned initFlags = CREATE_SUSPENDED;
     if (method == 1) 
     {
-        hThread = (HANDLE)_beginthreadex(nullptr, 0, workerThread, data, initFlags, nullptr);
+        hThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, workerThread, data, initFlags, nullptr));
     }
     else 
     {
