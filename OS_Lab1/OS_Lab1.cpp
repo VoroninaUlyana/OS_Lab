@@ -3,7 +3,6 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
-using namespace std;
 
 struct ThreadData 
 {
@@ -15,7 +14,7 @@ unsigned __stdcall workerThread(void* param)
 {
     ThreadData* data = (ThreadData*)param;
     int oddCount = 0;
-    cout << "\nWorker Thread: Processing array..." << endl;
+    std::cout << "\nWorker Thread: Processing array..." << std::endl;
     for (int i = 0; i < data->size; ++i) 
     {
         if (data->array[i] % 2 != 0) 
@@ -24,7 +23,7 @@ unsigned __stdcall workerThread(void* param)
         }
         Sleep(100);
     }
-    cout << "Worker Thread: Number of odd elements is " << oddCount << endl;
+    std::cout << "Worker Thread: Number of odd elements is " << oddCount << std::endl;
     delete[] data->array;
     delete data;
 
@@ -42,44 +41,44 @@ int main()
     int size;
     DWORD suspendTime;
     int choice;
-    cout << "Enter array size: ";
-    cin >> size;
+    std::cout << "Enter array size: ";
+    std::cin >> size;
     if (size <= 0) 
     {
-        cerr << "Invalid array size!" << endl;
+        std::cerr << "Invalid array size!" << std::endl;
         return 1;
     }
     int* arr = new int[size];
-    cout << "Generate array randomly? (1 - Yes, 0 - No): ";
-    cin >> choice;
+    std::cout << "Generate array randomly? (1 - Yes, 0 - No): ";
+    std::cin >> choice;
     if (choice == 1) 
     {
         srand(time(nullptr));
-        cout << "Generated array: ";
+        std::cout << "Generated array: ";
         for (int i = 0; i < size; ++i) 
         {
             arr[i] = rand() % 100 - 50;
-            cout << arr[i] << " ";
+            std::cout << arr[i] << " ";
         }
-        cout << endl;
+        std::cout << std::endl;
     }
     else 
     {
-        cout << "Enter " << size << " elements:" << endl;
+        std::cout << "Enter " << size << " elements:" << std::endl;
         for (int i = 0; i < size; ++i) 
         {
-            cin >> arr[i];
+            std::cin >> arr[i];
         }
     }
-    cout << "Enter suspend time for worker thread (ms): ";
-    cin >> suspendTime;
+    std::cout << "Enter suspend time for worker thread (ms): ";
+    std::cin >> suspendTime;
     int method;
-    cout << "Choose creation method (1 - _beginthreadex, 2 - CreateThread): ";
-    cin >> method;
+    std::cout << "Choose creation method (1 - _beginthreadex, 2 - CreateThread): ";
+    std::cin >> method;
     ThreadData* data = new ThreadData;
     data->array = arr;
     data->size = size;
-    HANDLE hThread = NULL;
+    HANDLE hThread = nullptr;
     unsigned initFlags = CREATE_SUSPENDED;
     if (method == 1) 
     {
@@ -89,15 +88,15 @@ int main()
     {
         hThread = CreateThread(nullptr, 0, workerThreadWin, data, initFlags, nullptr);
     }
-    cout << "Suspending for " << suspendTime << " ms..." << endl;
+    std::cout << "Suspending for " << suspendTime << " ms..." << std::endl;
     Sleep(suspendTime);
     ResumeThread(hThread);
-    cout << "Thread resumed with ResumeThread!" << endl;
-    cout << "Main thread waiting for worker to finish..." << endl;
+    std::cout << "Thread resumed with ResumeThread!" << std::endl;
+    std::cout << "Main thread waiting for worker to finish..." << std::endl;
     WaitForSingleObject(hThread, INFINITE);
-    cout << "Closing thread handle..." << endl;
+    std::cout << "Closing thread handle..." << std::endl;
     CloseHandle(hThread);
-    cout << "Main thread exiting." << endl;
+    std::cout << "Main thread exiting." << std::endl;
 
     return 0;
 }
