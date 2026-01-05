@@ -31,6 +31,12 @@ unsigned __stdcall workerThread(void* param)
     return 0;
 }
 
+DWORD WINAPI workerThreadWin(LPVOID param) 
+{
+    workerThread(param);
+    return 0;
+}
+
 int main() 
 {
     int size;
@@ -67,6 +73,9 @@ int main()
     }
     cout << "Enter suspend time for worker thread (ms): ";
     cin >> suspendTime;
+    int method;
+    cout << "Choose creation method (1 - _beginthreadex, 2 - CreateThread): ";
+    cin >> method;
     ThreadData* data = new ThreadData;
     data->array = arr;
     data->size = size;
