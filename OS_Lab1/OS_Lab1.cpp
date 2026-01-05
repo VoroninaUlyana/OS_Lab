@@ -79,24 +79,16 @@ int main()
     ThreadData* data = new ThreadData;
     data->array = arr;
     data->size = size;
-    HANDLE hThread = (HANDLE)_beginthreadex(
-        nullptr,    
-        0,         
-        &workerThread, 
-        (void*)data,   
-        0, 
-        nullptr     
-    );
-    if (hThread == NULL) 
+    HANDLE hThread = NULL;
+    unsigned initFlags = CREATE_SUSPENDED;
+    if (method == 1) 
     {
-        cerr << "Failed to create thread!" << endl;
-        delete[] arr;
-        delete data;
-        return 1;
+        hThread = (HANDLE)_beginthreadex(nullptr, 0, workerThread, data, initFlags, nullptr);
     }
-    Sleep(100);
-    SuspendThread(hThread);
-    cout << "Thread explicitly suspended with SuspendThread." << endl;
+    else 
+    {
+        hThread = CreateThread(nullptr, 0, workerThreadWin, data, initFlags, nullptr);
+    }
     cout << "Suspending for " << suspendTime << " ms..." << endl;
     Sleep(suspendTime);
     ResumeThread(hThread);
