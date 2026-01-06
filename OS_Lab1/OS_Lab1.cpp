@@ -6,9 +6,19 @@
 
 struct ThreadData 
 {
-    int* array;
-    int size;
+    int* array = nullptr;
+    int size = 0;
 };
+
+void printArray(const int* arr, int size)
+{
+    std::cout << "Generated array: ";
+    for (int i = 0; i < size; ++i)
+    {
+        std::cout << arr[i] << " ";
+    }
+    std::cout << std::endl;
+}
 
 unsigned __stdcall workerThread(void* param) 
 {
@@ -43,24 +53,23 @@ int main()
     int choice;
     std::cout << "Enter array size: ";
     std::cin >> size;
-    if (size <= 0) 
+    if (0 >= size) 
     {
         std::cerr << "Invalid array size!" << std::endl;
         return 1;
     }
     int* arr = new int[size];
-    std::cout << "Generate array randomly? (1 - Yes, 0 - No): ";
+    std::cout << "Generate array randomly? (1 - Yes, 2 - No): ";
     std::cin >> choice;
-    if (choice == 1) 
+    if (1 == choice) 
     {
         srand(static_cast<unsigned int>(time(nullptr)));
         std::cout << "Generated array: ";
         for (int i = 0; i < size; ++i) 
         {
             arr[i] = rand() % 100 - 50;
-            std::cout << arr[i] << " ";
         }
-        std::cout << std::endl;
+        printArray(arr, size);
     }
     else 
     {
@@ -80,7 +89,7 @@ int main()
     data->size = size;
     HANDLE hThread = nullptr;
     unsigned initFlags = CREATE_SUSPENDED;
-    if (method == 1) 
+    if (1 == method) 
     {
         hThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, workerThread, data, initFlags, nullptr));
     }
