@@ -97,10 +97,23 @@ int main()
     {
         hThread = CreateThread(nullptr, 0, workerThreadWin, data, initFlags, nullptr);
     }
+    if (nullptr == hThread)
+    {
+        std::cerr << "Failed to create thread! Error code: " << GetLastError() << std::endl;
+        delete[] arr;
+        delete data;
+        return 1;
+    }
     std::cout << "Suspending for " << suspendTime << " ms..." << std::endl;
     Sleep(suspendTime);
-    ResumeThread(hThread);
-    std::cout << "Thread resumed with ResumeThread!" << std::endl;
+    if (static_cast<DWORD>(-1) == ResumeThread(hThread))
+    {
+        std::cerr << "Failed to resume thread! Error code: " << GetLastError() << std::endl;
+    }
+    else
+    {
+        std::cout << "Thread resumed with ResumeThread!" << std::endl;
+    }
     std::cout << "Main thread waiting for worker to finish..." << std::endl;
     WaitForSingleObject(hThread, INFINITE);
     std::cout << "Closing thread handle..." << std::endl;
