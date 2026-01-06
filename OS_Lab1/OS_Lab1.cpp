@@ -49,79 +49,92 @@ DWORD WINAPI workerThreadWin(LPVOID param)
 
 int main() 
 {
-    const int kRandomMax = 100;
-    const int kRandomOffset = 50;
-    int size;
-    DWORD suspendTime;
-    int choice;
-    std::cout << "Enter array size: ";
-    std::cin >> size;
-    if (0 >= size) 
+    try
     {
-        std::cerr << "Invalid array size!" << std::endl;
-        return 1;
-    }
-    int* arr = new int[size];
-    std::cout << "Generate array randomly? (1 - Yes, 2 - No): ";
-    std::cin >> choice;
-    if (1 == choice) 
-    {
-        srand(static_cast<unsigned int>(time(nullptr)));
-        std::cout << "Generated array: ";
-        for (int i = 0; i < size; ++i) 
+        const int kRandomMax = 100;
+        const int kRandomOffset = 50;
+        int size;
+        DWORD suspendTime;
+        int choice;
+        std::cout << "Enter array size: ";
+        std::cin >> size;
+        if (0 >= size)
         {
-            arr[i] = rand() % kRandomMax - kRandomOffset;
+            std::cerr << "Invalid array size!" << std::endl;
+            return 1;
         }
-        printArray(arr, size);
-    }
-    else 
-    {
-        std::cout << "Enter " << size << " elements:" << std::endl;
-        for (int i = 0; i < size; ++i) 
+        int* arr = new int[size];
+        std::cout << "Generate array randomly? (1 - Yes, 2 - No): ";
+        std::cin >> choice;
+        if (1 == choice)
         {
-            std::cin >> arr[i];
+            srand(static_cast<unsigned int>(time(nullptr)));
+            std::cout << "Generated array: ";
+            for (int i = 0; i < size; ++i)
+            {
+                arr[i] = rand() % kRandomMax - kRandomOffset;
+            }
+            printArray(arr, size);
         }
-    }
-    std::cout << "Enter suspend time for worker thread (ms): ";
-    std::cin >> suspendTime;
-    int method;
-    std::cout << "Choose creation method (1 - _beginthreadex, 2 - CreateThread): ";
-    std::cin >> method;
-    ThreadData* data = new ThreadData;
-    data->array = arr;
-    data->size = size;
-    HANDLE hThread = nullptr;
-    unsigned initFlags = CREATE_SUSPENDED;
-    if (1 == method) 
-    {
-        hThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, workerThread, data, initFlags, nullptr));
-    }
-    else 
-    {
-        hThread = CreateThread(nullptr, 0, workerThreadWin, data, initFlags, nullptr);
-    }
-    if (nullptr == hThread)
-    {
-        std::cerr << "Failed to create thread! Error code: " << GetLastError() << std::endl;
-        delete[] arr;
-        delete data;
-        return 1;
-    }
-    std::cout << "Suspending for " << suspendTime << " ms..." << std::endl;
-    Sleep(suspendTime);
-    if (static_cast<DWORD>(-1) == ResumeThread(hThread))
-    {
-        std::cerr << "Failed to resume thread! Error code: " << GetLastError() << std::endl;
-    }
-    else
-    {
-        std::cout << "Thread resumed with ResumeThread!" << std::endl;
-    }
-    std::cout << "Main thread waiting for worker to finish..." << std::endl;
-    WaitForSingleObject(hThread, INFINITE);
-    std::cout << "Closing thread handle..." << std::endl;
-    CloseHandle(hThread);
-    std::cout << "Main thread exiting." << std::endl;
+        else
+        {
+            std::cout << "Enter " << size << " elements:" << std::endl;
+            for (int i = 0; i < size; ++i)
+            {
+                std::cin >> arr[i];
+            }
+        }
+        std::cout << "Enter suspend time for worker thread (ms): ";
+        std::cin >> suspendTime;
+        int method;
+        std::cout << "Choose creation method (1 - _beginthreadex, 2 - CreateThread): ";
+        std::cin >> method;
+        ThreadData* data = new ThreadData;
+        data->array = arr;
+        data->size = size;
+        HANDLE hThread = nullptr;
+        unsigned initFlags = CREATE_SUSPENDED;
+        if (1 == method)
+        {
+            hThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, workerThread, data, initFlags, nullptr));
+        }
+        else
+        {
+            hThread = CreateThread(nullptr, 0, workerThreadWin, data, initFlags, nullptr);
+        }
+        if (nullptr == hThread)
+        {
+            std::cerr << "Failed to create thread! Error code: " << GetLastError() << std::endl;
+            delete[] arr;
+            delete data;
+            return 1;
+        }
+        std::cout << "Suspending for " << suspendTime << " ms..." << std::endl;
+        Sleep(suspendTime);
+        if (static_cast<DWORD>(-1) == ResumeThread(hThread))
+        {
+            std::cerr << "Failed to resume thread! Error code: " << GetLastError() << std::endl;
+        }
+        else
+        {
+            std::cout << "Thread resumed with ResumeThread!" << std::endl;
+        }
+        std::cout << "Main thread waiting for worker to finish..." << std::endl;
+        WaitForSingleObject(hThread, INFINITE);
+        std::cout << "Closing thread handle..." << std::endl;
+        CloseHandle(hThread);
+        std::cout << "Main thread exiting." << std::endl;
 
-    return 0;
+        return 0;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Standard exception: " << e.what() << std::endl;
+        return 1;
+    }
+    catch (...)
+    {
+        std::cerr << "An unknown error occurred!" << std::endl;
+        return 1;
+    }
 }
