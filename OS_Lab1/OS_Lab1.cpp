@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <memory>
 
 struct ThreadData 
 {
@@ -89,24 +90,23 @@ int main()
         int method;
         std::cout << "Choose creation method (1 - _beginthreadex, 2 - CreateThread): ";
         std::cin >> method;
-        ThreadData* data = new ThreadData;
+        auto data = std::make_unique<ThreadData>();
         data->array = arr;
         data->size = size;
         HANDLE hThread = nullptr;
         unsigned initFlags = CREATE_SUSPENDED;
         if (1 == method)
         {
-            hThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, workerThread, data, initFlags, nullptr));
+            hThread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, workerThread, data.release(), initFlags, nullptr));
         }
         else
         {
-            hThread = CreateThread(nullptr, 0, workerThreadWin, data, initFlags, nullptr);
+            hThread = CreateThread(nullptr, 0, workerThreadWin, data.release(), initFlags, nullptr);
         }
         if (nullptr == hThread)
         {
             std::cerr << "Failed to create thread! Error code: " << GetLastError() << std::endl;
             delete[] arr;
-            delete data;
             return 1;
         }
         std::cout << "Suspending for " << suspendTime << " ms..." << std::endl;
