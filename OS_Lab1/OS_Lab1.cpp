@@ -25,13 +25,14 @@ unsigned __stdcall workerThread(void* param)
     ThreadData* data = static_cast<ThreadData*>(param);
     int oddCount = 0;
     std::cout << "\nWorker Thread: Processing array..." << std::endl;
+    const DWORD kStepDelay = 100;
     for (int i = 0; i < data->size; ++i) 
     {
         if (data->array[i] % 2 != 0) 
         { 
             oddCount++;
         }
-        Sleep(100);
+        Sleep(kStepDelay);
     }
     std::cout << "Worker Thread: Number of odd elements is " << oddCount << std::endl;
     delete[] data->array;
@@ -48,6 +49,8 @@ DWORD WINAPI workerThreadWin(LPVOID param)
 
 int main() 
 {
+    const int kRandomMax = 100;
+    const int kRandomOffset = 50;
     int size;
     DWORD suspendTime;
     int choice;
@@ -67,7 +70,7 @@ int main()
         std::cout << "Generated array: ";
         for (int i = 0; i < size; ++i) 
         {
-            arr[i] = rand() % 100 - 50;
+            arr[i] = rand() % kRandomMax - kRandomOffset;
         }
         printArray(arr, size);
     }
