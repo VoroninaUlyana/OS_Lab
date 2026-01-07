@@ -43,6 +43,7 @@ int main(int argc, char* argv[])
     HANDLE hExitEvent = OpenEvent(SYNCHRONIZE, FALSE, kEventName);
     if (nullptr == hSemaphore || nullptr == hMutex || nullptr == hExitEvent)
     {
+        std::cerr << "[Downloader] Error: Could not open sync objects. GetLastError: " << GetLastError() << std::endl;
         return 1;
     }
     HANDLE waitHandles[2];

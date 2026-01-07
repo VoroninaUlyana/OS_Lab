@@ -9,30 +9,44 @@
 
 int main() 
 {
+    try
+    {
     int N, M;
     std::cout << "--- Browser Manager ---\n";
     std::cout << "Enter max simultaneous downloads (N): ";
     if (!(std::cin >> N))
-        return 0;
+        throw std::runtime_error("Invalid input for N");
     std::cout << "Enter total files in queue (M): ";
     if (!(std::cin >> M))
-        return 0;
+        throw std::runtime_error("Invalid input for M");
     std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
-    if (M <= N) 
+    if (M < N) 
     {
-        std::cout << "Note: M should be greater than N.\n";
+        std::cerr << "Error: M must be greater than or equal to N.\n";
+        return 1;
     }
     if (N <= 0) 
     {
-        std::cout << "Note: N should be greater than 0.\n";
+        std::cerr << "Error: N must be a positive integer.\n";
+        return 1;
     }
     HANDLE hSemaphore = CreateSemaphore(nullptr, N, N, kSemaphoreName);
-    HANDLE hMutex = CreateMutex(nullptr, FALSE, kMutexName);
-    HANDLE hExitEvent = CreateEvent(nullptr, TRUE, FALSE, kEventName);
-    if (nullptr == hSemaphore || nullptr == hMutex || nullptr == hExitEvent)
+    if (nullptr == hSemaphore) 
     {
-        std::cerr << "Error: Could not create kernel objects.\n";
-        return 1;
+        throw std::runtime_error("Failed to create semaphore. Error code: " + std::to_string(GetLastError()));
+    }
+    HANDLE hMutex = CreateMutex(nullptr, FALSE, kMutexName);
+    if (nullptr == hMutex) 
+    {
+        CloseHandle(hSemaphore);
+        throw std::runtime_error("Failed to create mutex. Error code: " + std::to_string(GetLastError()));
+    }
+    HANDLE hExitEvent = CreateEvent(nullptr, TRUE, FALSE, kEventName);
+    if (nullptr == hExitEvent) 
+    {
+        CloseHandle(hSemaphore);
+        CloseHandle(hMutex);
+        throw std::runtime_error("Failed to create event. Error code: " + std::to_string(GetLastError()));
     }
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
@@ -52,7 +66,7 @@ int main()
         }
         else 
         {
-            std::cerr << "Error: Failed to launch Downloader.exe\n";
+            std::cerr << "Warning: Failed to launch Downloader.exe for " << i + 1 << ". WinAPI Error: " << GetLastError() << std::endl;
         }
     }
     std::cout << "\n=============================================\n";
@@ -78,5 +92,11 @@ int main()
     CloseHandle(hMutex);
     CloseHandle(hExitEvent);
     std::cin.get();
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "\nCRITICAL ERROR: " << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }
