@@ -6,37 +6,36 @@
 #include <strsafe.h>
 #include <limits>
 #include "SharedConstants.h"
-using namespace std;
 
 int main() 
 {
     int N, M;
-    cout << "--- Browser Manager ---\n";
-    cout << "Enter max simultaneous downloads (N): ";
-    if (!(cin >> N)) 
+    std::cout << "--- Browser Manager ---\n";
+    std::cout << "Enter max simultaneous downloads (N): ";
+    if (!(std::cin >> N))
         return 0;
-    cout << "Enter total files in queue (M): ";
-    if (!(cin >> M)) 
+    std::cout << "Enter total files in queue (M): ";
+    if (!(std::cin >> M))
         return 0;
-    cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
+    std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
     if (M <= N) 
     {
-        cout << "Note: M should be greater than N.\n";
+        std::cout << "Note: M should be greater than N.\n";
     }
     if (N <= 0) 
     {
-        cout << "Note: N should be greater than 0.\n";
+        std::cout << "Note: N should be greater than 0.\n";
     }
-    HANDLE hSemaphore = CreateSemaphore(NULL, N, N, kSemaphoreName);
-    HANDLE hMutex = CreateMutex(NULL, FALSE, kMutexName);
-    HANDLE hExitEvent = CreateEvent(NULL, TRUE, FALSE, kEventName);
-    if (!hSemaphore || !hMutex || !hExitEvent) 
+    HANDLE hSemaphore = CreateSemaphore(nullptr, N, N, kSemaphoreName);
+    HANDLE hMutex = CreateMutex(nullptr, FALSE, kMutexName);
+    HANDLE hExitEvent = CreateEvent(nullptr, TRUE, FALSE, kEventName);
+    if (nullptr == hSemaphore || nullptr == hMutex || nullptr == hExitEvent)
     {
-        cerr << "Error: Could not create kernel objects.\n";
+        std::cerr << "Error: Could not create kernel objects.\n";
         return 1;
     }
-    vector<HANDLE> childProcesses;
-    cout << "Starting download processes...\n";
+    std::vector<HANDLE> childProcesses;
+    std::cout << "Starting download processes...\n";
     for (int i = 0; i < M; ++i) 
     {
         STARTUPINFO si;
@@ -46,25 +45,25 @@ int main()
         ZeroMemory(&pi, sizeof(pi));
         TCHAR cmdLine[MAX_PATH];
         StringCchPrintf(cmdLine, MAX_PATH, _T("Downloader.exe file_%d.dat"), i + 1);
-        if (CreateProcess(NULL, cmdLine, NULL, NULL, FALSE,0, NULL, NULL, &si, &pi)) 
+        if (CreateProcess(nullptr, cmdLine, nullptr, nullptr, FALSE,0, nullptr, nullptr, &si, &pi))
         {
             childProcesses.push_back(pi.hProcess);
             CloseHandle(pi.hThread);
         }
         else 
         {
-            cerr << "Error: Failed to launch Downloader.exe\n";
+            std::cerr << "Error: Failed to launch Downloader.exe\n";
         }
     }
-    cout << "\n=============================================\n";
-    cout << "Browser is running.\n";
-    cout << "Active downloads: " << N << ", In queue: " << (M - N) << "\n";
-    cout << "PRESS [ENTER] TO STOP THE BROWSER...\n";
-    cout << "=============================================\n";
-    cin.get();
+    std::cout << "\n=============================================\n";
+    std::cout << "Browser is running.\n";
+    std::cout << "Active downloads: " << N << ", In queue: " << (M - N) << "\n";
+    std::cout << "PRESS [ENTER] TO STOP THE BROWSER...\n";
+    std::cout << "=============================================\n";
+    std::cin.get();
     WaitForSingleObject(hMutex, INFINITE);
-    cout << "\n[!] Signal sent! Closing browser...\n";
-    cout << "[!] Waiting for child processes to finish (max 4 seconds)...\n";
+    std::cout << "\n[!] Signal sent! Closing browser...\n";
+    std::cout << "[!] Waiting for child processes to finish (max 4 seconds)...\n";
     ReleaseMutex(hMutex);
     SetEvent(hExitEvent);
     const int MAX_WAIT = MAXIMUM_WAIT_OBJECTS;
@@ -73,11 +72,11 @@ int main()
         int count = min((int)(childProcesses.size() - i), MAX_WAIT);
         WaitForMultipleObjects(count, &childProcesses[i], TRUE, INFINITE);
     }
-    cout << "All processes closed. Press Enter to exit.\n";
+    std::cout << "All processes closed. Press Enter to exit.\n";
     for (HANDLE h : childProcesses) CloseHandle(h);
     CloseHandle(hSemaphore);
     CloseHandle(hMutex);
     CloseHandle(hExitEvent);
-    cin.get();
+    std::cin.get();
     return 0;
 }

@@ -5,7 +5,6 @@
 #include <tchar.h>
 #include <ctime>
 #include "SharedConstants.h"
-using namespace std;
 
 struct BracketResult 
 {
@@ -15,10 +14,10 @@ struct BracketResult
 
 BracketResult PerformTaskLogic() 
 {
-    string content;
+    std::string content;
     for (int i = 0; i < kMockDataSize; ++i) 
     {
-        content += "Data block with (some) content [id=" + to_string(i) + "] {check}. ";
+        content += "Data block with (some) content [id=" + std::to_string(i) + "] {check}. ";
     }
     int openBrackets = 0;
     int closeBrackets = 0;
@@ -34,7 +33,7 @@ int main(int argc, char* argv[])
 {
     srand(GetTickCount() ^ GetCurrentProcessId());
     DWORD pid = GetCurrentProcessId();
-    string fileName = "unknown_file.dat";
+    std::string fileName = "unknown_file.dat";
     if (argc > 1) 
     {
         fileName = argv[1];
@@ -42,7 +41,7 @@ int main(int argc, char* argv[])
     HANDLE hSemaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, FALSE, kSemaphoreName);
     HANDLE hMutex = OpenMutex(SYNCHRONIZE, FALSE, kMutexName);
     HANDLE hExitEvent = OpenEvent(SYNCHRONIZE, FALSE, kEventName);
-    if (!hSemaphore || !hMutex || !hExitEvent) 
+    if (nullptr == hSemaphore || nullptr == hMutex || nullptr == hExitEvent)
     {
         return 1;
     }
@@ -53,23 +52,23 @@ int main(int argc, char* argv[])
     if (waitResult == WAIT_OBJECT_0) 
     {
         WaitForSingleObject(hMutex, INFINITE);
-        cout << "[PID: " << pid << "] Download interrupted by browser closing.\n";
+        std::cout << "[PID: " << pid << "] Download interrupted by browser closing.\n";
         ReleaseMutex(hMutex);
     }
     else if (waitResult == WAIT_OBJECT_0 + 1) 
     {
         WaitForSingleObject(hMutex, INFINITE);
-        cout << "[PID: " << pid << "] Connection established. Starting download of '" << fileName << "'...\n";
+        std::cout << "[PID: " << pid << "] Connection established. Starting download of '" << fileName << "'...\n";
         ReleaseMutex(hMutex);
         BracketResult result = PerformTaskLogic();
         int sleepTime = (rand() % kMaxDownloadDelay + kMinDownloadDelay) * 1000;
         Sleep(sleepTime);
         WaitForSingleObject(hMutex, INFINITE);
-        cout << "[PID: " << pid << "] File '" << fileName << "' processed successfully.\n";
-        cout << "       -> Analysis Result: Open Brackets: " << result.openCount
+        std::cout << "[PID: " << pid << "] File '" << fileName << "' processed successfully.\n";
+        std::cout << "       -> Analysis Result: Open Brackets: " << result.openCount
             << ", Close Brackets: " << result.closeCount << "\n";
         ReleaseMutex(hMutex);
-        ReleaseSemaphore(hSemaphore, 1, NULL);
+        ReleaseSemaphore(hSemaphore, 1, nullptr);
     }
     CloseHandle(hSemaphore);
     CloseHandle(hMutex);
