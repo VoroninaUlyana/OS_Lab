@@ -34,12 +34,12 @@ int main()
         std::cerr << "Error: Could not create kernel objects.\n";
         return 1;
     }
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
     std::vector<HANDLE> childProcesses;
     std::cout << "Starting download processes...\n";
     for (int i = 0; i < M; ++i) 
     {
-        STARTUPINFO si;
-        PROCESS_INFORMATION pi;
         ZeroMemory(&si, sizeof(si));
         si.cb = sizeof(si);
         ZeroMemory(&pi, sizeof(pi));

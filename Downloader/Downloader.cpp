@@ -8,8 +8,8 @@
 
 struct BracketResult 
 {
-    int openCount;
-    int closeCount;
+    int openCount = 0;
+    int closeCount = 0;
 };
 
 BracketResult PerformTaskLogic() 
