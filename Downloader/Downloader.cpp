@@ -4,11 +4,8 @@
 #include <vector>
 #include <tchar.h>
 #include <ctime>
+#include "SharedConstants.h"
 using namespace std;
-
-const TCHAR* SEMAPHORE_NAME = _T("DownloadSlots");
-const TCHAR* MUTEX_NAME = _T("LogAccessMutex");
-const TCHAR* EVENT_NAME = _T("BrowserClosingEvent");
 
 struct BracketResult 
 {
@@ -19,7 +16,7 @@ struct BracketResult
 BracketResult PerformTaskLogic() 
 {
     string content;
-    for (int i = 0; i < 200; ++i) 
+    for (int i = 0; i < kMockDataSize; ++i) 
     {
         content += "Data block with (some) content [id=" + to_string(i) + "] {check}. ";
     }
@@ -42,9 +39,9 @@ int main(int argc, char* argv[])
     {
         fileName = argv[1];
     }
-    HANDLE hSemaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, FALSE, SEMAPHORE_NAME);
-    HANDLE hMutex = OpenMutex(SYNCHRONIZE, FALSE, MUTEX_NAME);
-    HANDLE hExitEvent = OpenEvent(SYNCHRONIZE, FALSE, EVENT_NAME);
+    HANDLE hSemaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, FALSE, kSemaphoreName);
+    HANDLE hMutex = OpenMutex(SYNCHRONIZE, FALSE, kMutexName);
+    HANDLE hExitEvent = OpenEvent(SYNCHRONIZE, FALSE, kEventName);
     if (!hSemaphore || !hMutex || !hExitEvent) 
     {
         return 1;
@@ -65,7 +62,7 @@ int main(int argc, char* argv[])
         cout << "[PID: " << pid << "] Connection established. Starting download of '" << fileName << "'...\n";
         ReleaseMutex(hMutex);
         BracketResult result = PerformTaskLogic();
-        int sleepTime = (rand() % 3 + 1) * 1000;
+        int sleepTime = (rand() % kMaxDownloadDelay + kMinDownloadDelay) * 1000;
         Sleep(sleepTime);
         WaitForSingleObject(hMutex, INFINITE);
         cout << "[PID: " << pid << "] File '" << fileName << "' processed successfully.\n";

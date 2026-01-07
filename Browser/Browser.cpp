@@ -5,11 +5,8 @@
 #include <tchar.h>
 #include <strsafe.h>
 #include <limits>
+#include "SharedConstants.h"
 using namespace std;
-
-const TCHAR* SEMAPHORE_NAME = _T("DownloadSlots");
-const TCHAR* MUTEX_NAME = _T("LogAccessMutex");
-const TCHAR* EVENT_NAME = _T("BrowserClosingEvent");
 
 int main() 
 {
@@ -30,9 +27,9 @@ int main()
     {
         cout << "Note: N should be greater than 0.\n";
     }
-    HANDLE hSemaphore = CreateSemaphore(NULL, N, N, SEMAPHORE_NAME);
-    HANDLE hMutex = CreateMutex(NULL, FALSE, MUTEX_NAME);
-    HANDLE hExitEvent = CreateEvent(NULL, TRUE, FALSE, EVENT_NAME);
+    HANDLE hSemaphore = CreateSemaphore(NULL, N, N, kSemaphoreName);
+    HANDLE hMutex = CreateMutex(NULL, FALSE, kMutexName);
+    HANDLE hExitEvent = CreateEvent(NULL, TRUE, FALSE, kEventName);
     if (!hSemaphore || !hMutex || !hExitEvent) 
     {
         cerr << "Error: Could not create kernel objects.\n";
