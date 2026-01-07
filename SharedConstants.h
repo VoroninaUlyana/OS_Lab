@@ -1,6 +1,5 @@
 #pragma once
 #include <tchar.h>
-#include <windows.h>
 
 static const TCHAR* kSemaphoreName = _T("Global\\DownloadSlots");
 static const TCHAR* kMutexName = _T("Global\\LogAccessMutex");

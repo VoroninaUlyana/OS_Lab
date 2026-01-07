@@ -1,9 +1,6 @@
 ﻿#include <windows.h>
 #include <iostream>
 #include <string>
-#include <vector>
-#include <tchar.h>
-#include <ctime>
 #include "SharedConstants.h"
 
 struct BracketResult 

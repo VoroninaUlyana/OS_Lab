@@ -2,7 +2,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <tchar.h>
 #include <strsafe.h>
 #include <limits>
 #include "SharedConstants.h"
@@ -20,7 +19,7 @@ int main()
     if (!(std::cin >> M))
         throw std::runtime_error("Invalid input for M");
     std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
-    if (M < N) 
+    if (M <= N) 
     {
         std::cerr << "Error: M must be greater than or equal to N.\n";
         return 1;
