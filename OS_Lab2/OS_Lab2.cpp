@@ -3,28 +3,26 @@
 #include <vector>
 #include <string>
 #include <sstream>
-using namespace std;
 
-void parent_mode(const char* exePath);
-void child_mode();
+void RunParentMode(const char* exePath);
+void RunChildMode();
 
 int main(int argc, char* argv[]) 
 {
-    setlocale(LC_ALL, "Rus");
-    if (argc > 1 && string(argv[1]) == "child") 
+    if (argc > 1 && std::string(argv[1]) == "child") 
     {
-        cout << "[Child] Запущен дочерний процесс.\n";
-        child_mode();
+        std::cout << "[Child] Starting child process...\n";
+        RunChildMode();
     }
     else 
     {
-        cout << "[Parent] Запущен родительский процесс.\n";
-        parent_mode(argv[0]);
+        std::cout << "[Parent] Starting parent process...\n";
+        RunParentMode(argv[0]);
     }
     return 0;
 }
 
-void parent_mode(const char* exePath) 
+void RunParentMode(const char* exePath) 
 {
     HANDLE hPipeParentToChildRead = NULL, hPipeParentToChildWrite = NULL;
     HANDLE hPipeChildToParentRead = NULL, hPipeChildToParentWrite = NULL;
@@ -32,14 +30,16 @@ void parent_mode(const char* exePath)
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
     saAttr.bInheritHandle = TRUE;
     saAttr.lpSecurityDescriptor = NULL;
-    if (!CreatePipe(&hPipeParentToChildRead, &hPipeParentToChildWrite, &saAttr, 0)) 
+    if (FALSE == CreatePipe(&hPipeParentToChildRead, &hPipeParentToChildWrite, &saAttr, 0)) 
     {
-        cerr << "[Parent] Ошибка CreatePipe (1).\n";
+        std::cerr << "[Parent] Error: Pipe 1 creation failed.\n";
         return;
     }
-    if (!CreatePipe(&hPipeChildToParentRead, &hPipeChildToParentWrite, &saAttr, 0)) 
+    if (FALSE == CreatePipe(&hPipeChildToParentRead, &hPipeChildToParentWrite, &saAttr, 0)) 
     {
-        cerr << "[Parent] Ошибка CreatePipe (2).\n";
+        std::cerr << "[Parent] Error: Pipe 2 creation failed.\n";
+        CloseHandle(hPipeParentToChildRead);
+        CloseHandle(hPipeParentToChildWrite);
         return;
     }
     SetHandleInformation(hPipeParentToChildWrite, HANDLE_FLAG_INHERIT, 0);
@@ -50,82 +50,97 @@ void parent_mode(const char* exePath)
     si.hStdInput = hPipeParentToChildRead;
     si.hStdOutput = hPipeChildToParentWrite;
     si.dwFlags |= STARTF_USESTDHANDLES;
-    ostringstream oss;
+    std::ostringstream oss;
     oss << "\"" << exePath << "\" child";
-    string command = oss.str();
-    cout << "[Parent] Создаю дочерний процесс...\n";
+    std::string command = oss.str();
+    std::cout << "[Parent] Creating child process...\n";
     BOOL success = CreateProcessA(
         NULL, &command[0],
         NULL, NULL, TRUE,
         0, NULL, NULL,
         &si, &pi
     );
-    if (!success)
+    if (FALSE == success)
     {
-        cerr << "[Parent] Ошибка CreateProcess.\n";
+        std::cerr << "[Parent] Error: Child process creation failed.\n";
+        CloseHandle(hPipeParentToChildRead); CloseHandle(hPipeParentToChildWrite);
+        CloseHandle(hPipeChildToParentRead); CloseHandle(hPipeChildToParentWrite);
         return;
     }
-    cout << "[Parent] Дочерний процесс создан успешно.\n";
-    int n;
-    cout << "[Parent] Введите размер массива: ";
-    cin >> n;
-    vector<int> arr(n);
-    cout << "[Parent] Введите элементы массива:\n";
-    for (int i = 0; i < n; ++i)
+    CloseHandle(hPipeParentToChildRead);
+    CloseHandle(hPipeChildToParentWrite);
+    std::cout << "[Parent] Child process created successfully.\n";
+    int n = 0;
+    std::cout << "[Parent] Enter array size: ";
+    if (!(std::cin >> n) || n <= 0) 
     {
-        cin >> arr[i];
+        std::cerr << "[Parent] Invalid input size." << std::endl;
     }
-    DWORD written;
-    WriteFile(hPipeParentToChildWrite, &n, sizeof(int), &written, NULL);
-    WriteFile(hPipeParentToChildWrite, arr.data(), n * sizeof(int), &written, NULL);
-    cout << "[Parent] Данные отправлены дочернему процессу.\n";
-    CloseHandle(hPipeParentToChildWrite);
-    int evenCount = 0;
-    DWORD readBytes;
-    if (ReadFile(hPipeChildToParentRead, &evenCount, sizeof(int), &readBytes, NULL))
+    else
     {
-        cout << "[Parent] Получен результат от дочернего процесса.\n";
-        cout << "Количество чётных элементов: " << evenCount << "\n";
+        std::vector<int> arr(static_cast<size_t>(n));
+        std::cout << "[Parent] Enter " << n << " elements:" << std::endl;
+        for (int i = 0; i < n; ++i) 
+        {
+            std::cin >> arr[static_cast<size_t>(i)];
+        }
+        DWORD written;
+        WriteFile(hPipeParentToChildWrite, &n, sizeof(int), &written, NULL);
+        WriteFile(hPipeParentToChildWrite, arr.data(), static_cast<DWORD>(n * sizeof(int)), &written, NULL);
+        std::cout << "[Parent] Data sent to child process.\n";
+        CloseHandle(hPipeParentToChildWrite);
+        hPipeParentToChildWrite = NULL;
+        int evenCount = 0;
+        DWORD readBytes;
+        if (ReadFile(hPipeChildToParentRead, &evenCount, sizeof(int), &readBytes, NULL))
+        {
+            std::cout << "[Parent] Received result from child process.\n";
+            std::cout << "Number of even elements: " << evenCount << "\n";
+        }
+        else
+        {
+            std::cerr << "[Parent] Error reading from pipe.\n";
+        }
     }
-    else 
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    if (NULL != hPipeParentToChildWrite)
     {
-        cerr << "[Parent] Ошибка при чтении из канала.\n";
+        CloseHandle(hPipeParentToChildWrite);
     }
     CloseHandle(hPipeChildToParentRead);
-    WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
-    cout << "[Parent] Работа завершена.\n";
+    std::cout << "[Parent] Process finished." << std::endl;
 }
 
-void child_mode() 
+void RunChildMode() 
 {
     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-    int n;
+    int n = 0;
     DWORD bytesRead;
-    if (!ReadFile(hStdin, &n, sizeof(int), &bytesRead, NULL) || bytesRead == 0) 
+    if (FALSE == ReadFile(hStdin, &n, sizeof(int), &bytesRead, NULL) || bytesRead == 0) 
     {
-        cerr << "[Child] Ошибка чтения размера массива.\n";
+        std::cerr << "[Child] Error reading array size.\n";
         return;
     }
-    vector<int> arr(n);
-    if (!ReadFile(hStdin, arr.data(), n * sizeof(int), &bytesRead, NULL)) 
+    std::vector<int> arr(static_cast<size_t>(n));
+    if (FALSE == ReadFile(hStdin, arr.data(), static_cast<DWORD>(n * sizeof(int)), &bytesRead, NULL))
     {
-        cerr << "[Child] Ошибка чтения данных массива.\n";
+        std::cerr << "[Child] Error reading array data.\n";
         return;
     }
-    cout << "[Child] Получен массив. Обработка данных...\n";
+    std::cout << "[Child] Array received. Processing data...\n";
     int evenCount = 0;
-    for (int x : arr)
+    for (const auto& value : arr)
     {
-        if (x % 2 == 0)
+        if (0 == value % 2)
         {
             evenCount++;
         }
     }
-    cout << "[Child] Результат вычислен. Отправка родителю...\n";
+    std::cout << "[Child] Result calculated. Sending to parent...\n";
     DWORD bytesWritten;
     WriteFile(hStdout, &evenCount, sizeof(int), &bytesWritten, NULL);
-    cout << "[Child] Завершение дочернего процесса.\n";
+    std::cout << "[Child] Terminate the child process.\n";
 }
