@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <limits>
 
 static const int EVEN_DIVISOR = 2;
 
@@ -55,12 +56,12 @@ int main(int argc, char* argv[])
 
 void RunParentMode(const char* exePath) 
 {
-    HANDLE hPipeParentToChildRead = NULL, hPipeParentToChildWrite = NULL;
-    HANDLE hPipeChildToParentRead = NULL, hPipeChildToParentWrite = NULL;
+    HANDLE hPipeParentToChildRead = nullptr, hPipeParentToChildWrite = nullptr;
+    HANDLE hPipeChildToParentRead = nullptr, hPipeChildToParentWrite = nullptr;
     SECURITY_ATTRIBUTES saAttr{};
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
     saAttr.bInheritHandle = TRUE;
-    saAttr.lpSecurityDescriptor = NULL;
+    saAttr.lpSecurityDescriptor = nullptr;
     if (FALSE == CreatePipe(&hPipeParentToChildRead, &hPipeParentToChildWrite, &saAttr, 0)) 
     {
         ReportError("Failed to create Pipe 1");
@@ -84,9 +85,9 @@ void RunParentMode(const char* exePath)
     std::string command = oss.str();
     std::cout << "[Parent] Creating child process...\n";
     BOOL success = CreateProcessA(
-        NULL, &command[0],
-        NULL, NULL, TRUE,
-        0, NULL, NULL,
+        nullptr, &command[0],
+        nullptr, nullptr, TRUE,
+        0, nullptr, nullptr,
         &si, &pi
     );
     if (FALSE == success)
@@ -116,21 +117,22 @@ void RunParentMode(const char* exePath)
                 throw std::runtime_error("Invalid array element input");
             }
         }
+        std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
         DWORD written;
-        if (FALSE == WriteFile(hPipeParentToChildWrite, &n, sizeof(int), &written, NULL))
+        if (FALSE == WriteFile(hPipeParentToChildWrite, &n, sizeof(int), &written, nullptr))
         {
             ReportError("Failed to write size to pipe");
         }
-        if (FALSE == WriteFile(hPipeParentToChildWrite, arr.data(), static_cast<DWORD>(n * sizeof(int)), &written, NULL))
+        if (FALSE == WriteFile(hPipeParentToChildWrite, arr.data(), static_cast<DWORD>(n * sizeof(int)), &written, nullptr))
         {
             ReportError("Failed to write data to pipe");
         }
         std::cout << "[Parent] Data sent to child process.\n";
         CloseHandle(hPipeParentToChildWrite);
-        hPipeParentToChildWrite = NULL;
+        hPipeParentToChildWrite = nullptr;
         int evenCount = 0;
         DWORD readBytes;
-        if (ReadFile(hPipeChildToParentRead, &evenCount, sizeof(int), &readBytes, NULL))
+        if (ReadFile(hPipeChildToParentRead, &evenCount, sizeof(int), &readBytes, nullptr))
         {
             std::cout << "[Parent] Received result from child process.\n";
             std::cout << "Number of even elements: " << evenCount << "\n";
@@ -141,7 +143,7 @@ void RunParentMode(const char* exePath)
         }
     }
     WaitForSingleObject(pi.hProcess, INFINITE);
-    if (NULL != hPipeParentToChildWrite)
+    if (nullptr != hPipeParentToChildWrite)
     {
         CloseHandle(hPipeParentToChildWrite);
     }
@@ -157,13 +159,13 @@ void RunChildMode()
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     int n = 0;
     DWORD bytesRead;
-    if (FALSE == ReadFile(hStdin, &n, sizeof(int), &bytesRead, NULL) || bytesRead == 0) 
+    if (FALSE == ReadFile(hStdin, &n, sizeof(int), &bytesRead, nullptr) || bytesRead == 0)
     {
         std::cerr << "[Child] Error reading array size.\n";
         return;
     }
     std::vector<int> arr(static_cast<size_t>(n));
-    if (FALSE == ReadFile(hStdin, arr.data(), static_cast<DWORD>(n * sizeof(int)), &bytesRead, NULL))
+    if (FALSE == ReadFile(hStdin, arr.data(), static_cast<DWORD>(n * sizeof(int)), &bytesRead, nullptr))
     {
         std::cerr << "[Child] Error reading array data.\n";
         return;
@@ -172,6 +174,6 @@ void RunChildMode()
     int evenCount = CountEvenElements(arr);
     std::cout << "[Child] Result calculated. Sending to parent...\n";
     DWORD bytesWritten;
-    WriteFile(hStdout, &evenCount, sizeof(int), &bytesWritten, NULL);
+    WriteFile(hStdout, &evenCount, sizeof(int), &bytesWritten, nullptr);
     std::cout << "[Child] Terminate the child process.\n";
 }
