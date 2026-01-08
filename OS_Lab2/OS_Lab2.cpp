@@ -3,21 +3,37 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <stdexcept>
+
+void ReportError(const std::string& message) 
+{
+    DWORD errorCode = GetLastError();
+    std::cerr << message << " (Windows Error Code: " << errorCode << ")" << std::endl;
+    throw std::runtime_error(message);
+}
 
 void RunParentMode(const char* exePath);
 void RunChildMode();
 
 int main(int argc, char* argv[]) 
 {
-    if (argc > 1 && std::string(argv[1]) == "child") 
+    try
     {
-        std::cout << "[Child] Starting child process...\n";
-        RunChildMode();
+        if (argc > 1 && std::string(argv[1]) == "child")
+        {
+            std::cout << "[Child] Starting child process...\n";
+            RunChildMode();
+        }
+        else
+        {
+            std::cout << "[Parent] Starting parent process...\n";
+            RunParentMode(argv[0]);
+        }
     }
-    else 
+    catch (const std::exception& e) 
     {
-        std::cout << "[Parent] Starting parent process...\n";
-        RunParentMode(argv[0]);
+        std::cerr << "CRITICAL ERROR: " << e.what() << std::endl;
+        return 1;
     }
     return 0;
 }
@@ -32,15 +48,13 @@ void RunParentMode(const char* exePath)
     saAttr.lpSecurityDescriptor = NULL;
     if (FALSE == CreatePipe(&hPipeParentToChildRead, &hPipeParentToChildWrite, &saAttr, 0)) 
     {
-        std::cerr << "[Parent] Error: Pipe 1 creation failed.\n";
-        return;
+        ReportError("Failed to create Pipe 1");
     }
     if (FALSE == CreatePipe(&hPipeChildToParentRead, &hPipeChildToParentWrite, &saAttr, 0)) 
     {
-        std::cerr << "[Parent] Error: Pipe 2 creation failed.\n";
         CloseHandle(hPipeParentToChildRead);
         CloseHandle(hPipeParentToChildWrite);
-        return;
+        ReportError("Failed to create Pipe 2");
     }
     SetHandleInformation(hPipeParentToChildWrite, HANDLE_FLAG_INHERIT, 0);
     SetHandleInformation(hPipeChildToParentRead, HANDLE_FLAG_INHERIT, 0);
@@ -74,7 +88,7 @@ void RunParentMode(const char* exePath)
     std::cout << "[Parent] Enter array size: ";
     if (!(std::cin >> n) || n <= 0) 
     {
-        std::cerr << "[Parent] Invalid input size." << std::endl;
+        throw std::invalid_argument("Array size must be a positive integer");
     }
     else
     {
@@ -82,11 +96,20 @@ void RunParentMode(const char* exePath)
         std::cout << "[Parent] Enter " << n << " elements:" << std::endl;
         for (int i = 0; i < n; ++i) 
         {
-            std::cin >> arr[static_cast<size_t>(i)];
+            if (!(std::cin >> arr[static_cast<size_t>(i)]))
+            {
+                throw std::runtime_error("Invalid array element input");
+            }
         }
         DWORD written;
-        WriteFile(hPipeParentToChildWrite, &n, sizeof(int), &written, NULL);
-        WriteFile(hPipeParentToChildWrite, arr.data(), static_cast<DWORD>(n * sizeof(int)), &written, NULL);
+        if (FALSE == WriteFile(hPipeParentToChildWrite, &n, sizeof(int), &written, NULL))
+        {
+            ReportError("Failed to write size to pipe");
+        }
+        if (FALSE == WriteFile(hPipeParentToChildWrite, arr.data(), static_cast<DWORD>(n * sizeof(int)), &written, NULL))
+        {
+            ReportError("Failed to write data to pipe");
+        }
         std::cout << "[Parent] Data sent to child process.\n";
         CloseHandle(hPipeParentToChildWrite);
         hPipeParentToChildWrite = NULL;
@@ -99,7 +122,7 @@ void RunParentMode(const char* exePath)
         }
         else
         {
-            std::cerr << "[Parent] Error reading from pipe.\n";
+            ReportError("Failed to read result from child");
         }
     }
     WaitForSingleObject(pi.hProcess, INFINITE);
@@ -108,8 +131,8 @@ void RunParentMode(const char* exePath)
         CloseHandle(hPipeParentToChildWrite);
     }
     CloseHandle(hPipeChildToParentRead);
-    CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
     std::cout << "[Parent] Process finished." << std::endl;
 }
 
