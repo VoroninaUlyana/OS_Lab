@@ -4,52 +4,52 @@
 #include <string>
 #include <sstream>
 using namespace std;
-struct ThreadParams 
+struct ThreadParams
 {
-    int id;
+    int id; // Номер маркера
     int arraySize;
-    vector<int>* pArray;
+    vector<int>* pArray; // Указатель на общий массив
     CRITICAL_SECTION* pCS;
     HANDLE hStartEvent; //для первоначального запуска
     HANDLE hContinueEvent; //для продолжения всех потоков
     HANDLE hStoppedEvent; //для уведомления main о блокировке
     HANDLE hFinishEvent; //для завершения данного потока
-    HANDLE hThreadExitedEvent; 
+    HANDLE hThreadExitedEvent;
 };
-class Simulation 
+class Simulation
 {
 public:
     Simulation() :
-        hStartEvent(NULL), hContinueEvent(NULL) 
+        hStartEvent(NULL), hContinueEvent(NULL)
     {
         InitializeCriticalSection(&cs);
     }
-    ~Simulation() 
+    ~Simulation()
     {
         cleanup();
         DeleteCriticalSection(&cs);
     }
-    bool Start(int arraySize, int numMarkers) 
+    bool Start(int arraySize, int numMarkers)
     {
         if (arraySize <= 0 || numMarkers <= 0) return false;
         this->arraySize = arraySize;
         this->numMarkers = numMarkers;
         sharedArray.assign(arraySize, 0);
-        hStartEvent = CreateEvent(NULL, TRUE, FALSE, NULL); 
-        hContinueEvent = CreateEvent(NULL, TRUE, FALSE, NULL); 
+        hStartEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        hContinueEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         stoppedEvents.resize(numMarkers);
         finishEvents.resize(numMarkers);
         threadHandles.resize(numMarkers);
         threadIds.resize(numMarkers);
         for (int i = 0; i < numMarkers; ++i) {
-            stoppedEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL); 
-            finishEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL); 
+            stoppedEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);//поток заблокирован
+            finishEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);//поток завершиться
             threadHandles[i] = NULL;
             threadIds[i] = 0;
             active.push_back(true);
         }
         // Создание потоков
-        for (int i = 0; i < numMarkers; ++i) 
+        for (int i = 0; i < numMarkers; ++i)
         {
             ThreadParams* tp = new ThreadParams();
             tp->id = i + 1;
@@ -63,40 +63,40 @@ public:
             tp->hThreadExitedEvent = NULL;
             DWORD tid;
             HANDLE h = CreateThread(NULL, 0, &Simulation::MarkerThreadProcStatic, tp, 0, &tid);
-            if (h == NULL) 
+            if (h == NULL)
             {
                 cerr << "CreateThread failed for marker " << (i + 1) << " code=" << GetLastError() << endl;
                 delete tp;
             }
-            else 
+            else
             {
                 threadHandles[i] = h;
                 threadIds[i] = tid;
             }
         }
-        SetEvent(hStartEvent);
+        SetEvent(hStartEvent);//запуск потоков после создания всех
         return true;
-    }
-    void WaitAllBlocked() 
+    }// ждет блокировки всех активных потоков
+    void WaitAllBlocked()
     {
         vector<HANDLE> handles;
-        for (int i = 0; i < numMarkers; ++i) 
+        for (int i = 0; i < numMarkers; ++i)
         {
-            if (active[i]) 
+            if (active[i])
             {
                 handles.push_back(stoppedEvents[i]);
             }
         }
         if (handles.empty()) return;
         WaitForMultipleObjects((DWORD)handles.size(), handles.data(), TRUE, INFINITE);
-    }
-    void TerminateMarker(int markerNumber) 
+    }//завершение и очистка
+    void TerminateMarker(int markerNumber)
     {
         if (markerNumber < 1 || markerNumber > numMarkers) return;
         int idx = markerNumber - 1;
         if (!active[idx]) return;
         SetEvent(finishEvents[idx]);
-        if (threadHandles[idx]) 
+        if (threadHandles[idx])
         {
             WaitForSingleObject(threadHandles[idx], INFINITE);
             CloseHandle(threadHandles[idx]);
@@ -106,11 +106,11 @@ public:
         ResetEvent(stoppedEvents[idx]);
         ResetEvent(finishEvents[idx]);
     }
-    void ContinueAll() 
+    void ContinueAll()
     {
-        for (int i = 0; i < numMarkers; ++i) 
+        for (int i = 0; i < numMarkers; ++i)
         {
-            if (active[i]) 
+            if (active[i])
             {
                 ResetEvent(stoppedEvents[i]);
             }
@@ -119,7 +119,7 @@ public:
         Sleep(1);
         ResetEvent(hContinueEvent);
     }
-    vector<int> GetArraySnapshot() 
+    vector<int> GetArraySnapshot()
     {
         vector<int> copy;
         EnterCriticalSection(&cs);
@@ -127,11 +127,11 @@ public:
         LeaveCriticalSection(&cs);
         return copy;
     }
-    void WaitAllExited() 
+    void WaitAllExited()
     {
-        for (int i = 0; i < numMarkers; ++i) 
+        for (int i = 0; i < numMarkers; ++i)
         {
-            if (threadHandles[i]) 
+            if (threadHandles[i])
             {
                 WaitForSingleObject(threadHandles[i], INFINITE);
                 CloseHandle(threadHandles[i]);
@@ -139,7 +139,7 @@ public:
             }
         }
     }
-    void cleanup() 
+    void cleanup()
     {
         if (hStartEvent) { CloseHandle(hStartEvent); hStartEvent = NULL; }
         if (hContinueEvent) { CloseHandle(hContinueEvent); hContinueEvent = NULL; }
@@ -156,12 +156,12 @@ private:
     CRITICAL_SECTION cs;
     HANDLE hStartEvent;
     HANDLE hContinueEvent;
-    vector<HANDLE> stoppedEvents; 
-    vector<HANDLE> finishEvents;  
+    vector<HANDLE> stoppedEvents;
+    vector<HANDLE> finishEvents;
     vector<HANDLE> threadHandles;
     vector<DWORD> threadIds;
     vector<bool> active;
-    static DWORD WINAPI MarkerThreadProcStatic(LPVOID lpParam) 
+    static DWORD WINAPI MarkerThreadProcStatic(LPVOID lpParam)
     {
         ThreadParams* tp = static_cast<ThreadParams*>(lpParam);
         if (!tp) return 0;
@@ -169,7 +169,7 @@ private:
         delete tp;
         return res;
     }
-    static DWORD MarkerThreadProc(ThreadParams* tp) 
+    static DWORD MarkerThreadProc(ThreadParams* tp)
     {
         int id = tp->id;
         int n = tp->arraySize;
@@ -183,16 +183,16 @@ private:
         srand(id);
         int marks = 0;
         int blockedIndex = -1;
-        for (;;) 
+        for (;;)
         {
             int idx = rand() % n;
             EnterCriticalSection(pCS);
-            if ((*pArray)[idx] == 0) 
+            if ((*pArray)[idx] == 0)
             {
                 LeaveCriticalSection(pCS);
                 Sleep(5);
                 EnterCriticalSection(pCS);
-                if ((*pArray)[idx] == 0) 
+                if ((*pArray)[idx] == 0)
                 {
                     (*pArray)[idx] = id;
                     marks++;
@@ -200,14 +200,14 @@ private:
                     Sleep(5);
                     continue;
                 }
-                else 
+                else
                 {
-                    blockedIndex = idx;
+                    blockedIndex = idx;//блокировка потока
                     LeaveCriticalSection(pCS);
                     break;
                 }
             }
-            else 
+            else
             {
                 blockedIndex = idx;
                 LeaveCriticalSection(pCS);
@@ -222,19 +222,19 @@ private:
         SetEvent(hStoppedEvent);
         HANDLE waitHandles[2] = { hContinueEvent, hFinishEvent };
         DWORD waitRes = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
-        if (waitRes == WAIT_OBJECT_0) 
+        if (waitRes == WAIT_OBJECT_0)
         {
-            marks = 0; 
-            for (;;) 
+            marks = 0;
+            for (;;)
             {
                 int idx = rand() % n;
                 EnterCriticalSection(pCS);
-                if ((*pArray)[idx] == 0) 
+                if ((*pArray)[idx] == 0)
                 {
                     LeaveCriticalSection(pCS);
                     Sleep(5);
                     EnterCriticalSection(pCS);
-                    if ((*pArray)[idx] == 0) 
+                    if ((*pArray)[idx] == 0)
                     {
                         (*pArray)[idx] = id;
                         marks++;
@@ -242,14 +242,14 @@ private:
                         Sleep(5);
                         continue;
                     }
-                    else 
+                    else
                     {
                         blockedIndex = idx;
                         LeaveCriticalSection(pCS);
                         break;
                     }
                 }
-                else 
+                else
                 {
                     blockedIndex = idx;
                     LeaveCriticalSection(pCS);
@@ -261,21 +261,21 @@ private:
             cout << ss2.str();
             SetEvent(hStoppedEvent);
             waitRes = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
-            if (waitRes == WAIT_OBJECT_0 + 1) 
+            if (waitRes == WAIT_OBJECT_0 + 1)
             {
                 EnterCriticalSection(pCS);
-                for (int i = 0; i < n; ++i) 
+                for (int i = 0; i < n; ++i)
                 {
                     if ((*pArray)[i] == id) (*pArray)[i] = 0;
                 }
                 LeaveCriticalSection(pCS);
                 return 0;
             }
-            else if (waitRes == WAIT_OBJECT_0) 
+            else if (waitRes == WAIT_OBJECT_0)
             {
-                while (true) 
+                while (true)
                 {
-                    if (WaitForSingleObject(hFinishEvent, 0) == WAIT_OBJECT_0) 
+                    if (WaitForSingleObject(hFinishEvent, 0) == WAIT_OBJECT_0)
                     {
                         EnterCriticalSection(pCS);
                         for (int i = 0; i < n; ++i) if ((*pArray)[i] == id) (*pArray)[i] = 0;
@@ -284,86 +284,104 @@ private:
                     }
                     int idx = rand() % n;
                     EnterCriticalSection(pCS);
-                    if ((*pArray)[idx] == 0) 
+                    if ((*pArray)[idx] == 0)
                     {
                         LeaveCriticalSection(pCS);
                         Sleep(5);
                         EnterCriticalSection(pCS);
-                        if ((*pArray)[idx] == 0) 
+                        if ((*pArray)[idx] == 0)
                         {
                             (*pArray)[idx] = id;
                             LeaveCriticalSection(pCS);
                             Sleep(5);
                             continue;
                         }
-                        else 
+                        else
                         {
                             LeaveCriticalSection(pCS);
                             SetEvent(hStoppedEvent);
                             DWORD w = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
-                            if (w == WAIT_OBJECT_0 + 1) 
+                            if (w == WAIT_OBJECT_0 + 1)
                             {
                                 EnterCriticalSection(pCS);
                                 for (int i = 0; i < n; ++i) if ((*pArray)[i] == id) (*pArray)[i] = 0;
                                 LeaveCriticalSection(pCS);
                                 return 0;
                             }
-                            else 
+                            else
                             {
                                 continue;
                             }
                         }
                     }
-                    else 
+                    else
                     {
                         LeaveCriticalSection(pCS);
                         SetEvent(hStoppedEvent);
                         DWORD w = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
-                        if (w == WAIT_OBJECT_0 + 1) 
+                        if (w == WAIT_OBJECT_0 + 1)
                         {
                             EnterCriticalSection(pCS);
                             for (int i = 0; i < n; ++i) if ((*pArray)[i] == id) (*pArray)[i] = 0;
                             LeaveCriticalSection(pCS);
                             return 0;
                         }
-                        else 
+                        else
                         {
                             continue;
                         }
                     }
                 }
             }
-            else 
+            else
             {
                 return 0;
             }
 
         }
-        else if (waitRes == WAIT_OBJECT_0 + 1) 
+        else if (waitRes == WAIT_OBJECT_0 + 1)
         {
             EnterCriticalSection(pCS);
             for (int i = 0; i < n; ++i) if ((*pArray)[i] == id) (*pArray)[i] = 0;
             LeaveCriticalSection(pCS);
             return 0;
         }
-        else 
+        else
         {
             return 0;
         }
         return 0;
     }
 };
-void PrintArray(const vector<int>& arr) 
+// Вспомогательная функция для автоматического тестирования
+Simulation RunSimulationForTests(int arraySize, int numMarkers, bool autoTerminate = true)
+{
+    Simulation sim;
+    if (!sim.Start(arraySize, numMarkers))
+    {
+        throw runtime_error("Failed to start simulation");
+    }
+    sim.WaitAllBlocked();
+    if (autoTerminate)
+    {
+        for (int i = 1; i <= sim.GetNumMarkers(); ++i)
+            sim.TerminateMarker(i);
+    }
+    sim.WaitAllExited();
+    return sim;
+}
+
+void PrintArray(const vector<int>& arr)
 {
     cout << "Array: [";
-    for (size_t i = 0; i < arr.size(); ++i) 
+    for (size_t i = 0; i < arr.size(); ++i)
     {
         if (i) cout << ", ";
         cout << arr[i];
     }
     cout << "]\n";
 }
-int main() 
+int main()
 {
     cout << "Simulation (markers, critical section & events)\n";
     int arraySize = 0;
@@ -373,12 +391,12 @@ int main()
     cout << "Enter number of markers: ";
     cin >> N;
     Simulation sim;
-    if (!sim.Start(arraySize, N)) 
+    if (!sim.Start(arraySize, N))
     {
         cerr << "Failed to start simulation\n";
         return 1;
     }
-    while (true) 
+    while (true)
     {
         auto act = sim.GetActiveMarkers();
         bool anyActive = false;
