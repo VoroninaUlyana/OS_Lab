@@ -5,6 +5,21 @@
 #include <sstream>
 #include <stdexcept>
 
+static const int EVEN_DIVISOR = 2;
+
+int CountEvenElements(const std::vector<int>& arr)
+{
+    int evenCount = 0;
+    for (const auto& value : arr)
+    {
+        if (0 == value % EVEN_DIVISOR)
+        {
+            evenCount++;
+        }
+    }
+    return evenCount;
+}
+
 void ReportError(const std::string& message) 
 {
     DWORD errorCode = GetLastError();
@@ -154,14 +169,7 @@ void RunChildMode()
         return;
     }
     std::cout << "[Child] Array received. Processing data...\n";
-    int evenCount = 0;
-    for (const auto& value : arr)
-    {
-        if (0 == value % 2)
-        {
-            evenCount++;
-        }
-    }
+    int evenCount = CountEvenElements(arr);
     std::cout << "[Child] Result calculated. Sending to parent...\n";
     DWORD bytesWritten;
     WriteFile(hStdout, &evenCount, sizeof(int), &bytesWritten, NULL);
