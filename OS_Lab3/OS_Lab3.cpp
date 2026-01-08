@@ -3,24 +3,34 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-using namespace std;
+#include <stdexcept>
+#include <algorithm>
+static const int SLEEP_DURATION_MS = 5;
+static const int THREAD_WAIT_TIMEOUT_MS = 1000;
+class SimulationException : public std::runtime_error 
+{
+public:
+    explicit SimulationException(const std::string& message) : std::runtime_error(message) {}
+};
 struct ThreadParams
 {
     int id; 
     int arraySize;
-    vector<int>* pArray; 
+    std::vector<int>* pArray; 
     CRITICAL_SECTION* pCS;
     HANDLE hStartEvent; 
     HANDLE hContinueEvent; 
     HANDLE hStoppedEvent; 
     HANDLE hFinishEvent; 
-    HANDLE hThreadExitedEvent;
+    ThreadParams() : id(0), arraySize(0), pArray(nullptr), pCS(nullptr),
+        hStartEvent(nullptr), hContinueEvent(nullptr),
+        hStoppedEvent(nullptr), hFinishEvent(nullptr) {}
 };
 class Simulation
 {
 public:
     Simulation() :
-        hStartEvent(NULL), hContinueEvent(NULL)
+        hStartEvent(nullptr), hContinueEvent(nullptr), arraySize(0), numMarkers(0)
     {
         InitializeCriticalSection(&cs);
     }
@@ -35,18 +45,27 @@ public:
         this->arraySize = arraySize;
         this->numMarkers = numMarkers;
         sharedArray.assign(arraySize, 0);
-        hStartEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-        hContinueEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        hStartEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+        if (nullptr == hStartEvent)
+        {
+            throw SimulationException("Failed to create start event");
+        }
+        hContinueEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+        if (nullptr == hContinueEvent)
+        {
+            throw SimulationException("Failed to create continue event");
+        }
         stoppedEvents.resize(numMarkers);
         finishEvents.resize(numMarkers);
         threadHandles.resize(numMarkers);
         threadIds.resize(numMarkers);
-        for (int i = 0; i < numMarkers; ++i) {
-            stoppedEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);
-            finishEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);
-            threadHandles[i] = NULL;
+        active.assign(numMarkers, true);
+        for (int i = 0; i < numMarkers; ++i) 
+        {
+            stoppedEvents[i] = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+            finishEvents[i] = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+            threadHandles[i] = nullptr;
             threadIds[i] = 0;
-            active.push_back(true);
         }
         for (int i = 0; i < numMarkers; ++i)
         {
@@ -59,13 +78,13 @@ public:
             tp->hContinueEvent = hContinueEvent;
             tp->hStoppedEvent = stoppedEvents[i];
             tp->hFinishEvent = finishEvents[i];
-            tp->hThreadExitedEvent = NULL;
             DWORD tid;
-            HANDLE h = CreateThread(NULL, 0, &Simulation::MarkerThreadProcStatic, tp, 0, &tid);
-            if (h == NULL)
+            HANDLE h = CreateThread(nullptr, 0, &Simulation::MarkerThreadProcStatic, tp, 0, &tid);
+            if (nullptr == h)
             {
-                cerr << "CreateThread failed for marker " << (i + 1) << " code=" << GetLastError() << endl;
+                DWORD err = GetLastError();
                 delete tp;
+                throw SimulationException("Failed to create thread " + std::to_string(i + 1) + ". Error: " + std::to_string(err));
             }
             else
             {
@@ -78,7 +97,7 @@ public:
     }
     void WaitAllBlocked()
     {
-        vector<HANDLE> handles;
+        std::vector<HANDLE> handles;
         for (int i = 0; i < numMarkers; ++i)
         {
             if (active[i])
@@ -99,7 +118,7 @@ public:
         {
             WaitForSingleObject(threadHandles[idx], INFINITE);
             CloseHandle(threadHandles[idx]);
-            threadHandles[idx] = NULL;
+            threadHandles[idx] = nullptr;
         }
         active[idx] = false;
         ResetEvent(stoppedEvents[idx]);
@@ -118,9 +137,9 @@ public:
         Sleep(1);
         ResetEvent(hContinueEvent);
     }
-    vector<int> GetArraySnapshot()
+    std::vector<int> GetArraySnapshot()
     {
-        vector<int> copy;
+        std::vector<int> copy;
         EnterCriticalSection(&cs);
         copy = sharedArray;
         LeaveCriticalSection(&cs);
@@ -134,72 +153,76 @@ public:
             {
                 WaitForSingleObject(threadHandles[i], INFINITE);
                 CloseHandle(threadHandles[i]);
-                threadHandles[i] = NULL;
+                threadHandles[i] = nullptr;
             }
         }
     }
     void cleanup()
     {
-        if (hStartEvent) { CloseHandle(hStartEvent); hStartEvent = NULL; }
-        if (hContinueEvent) { CloseHandle(hContinueEvent); hContinueEvent = NULL; }
-        for (auto& h : stoppedEvents) if (h) { CloseHandle(h); h = NULL; }
-        for (auto& h : finishEvents) if (h) { CloseHandle(h); h = NULL; }
+        if (hStartEvent) { CloseHandle(hStartEvent); hStartEvent = nullptr; }
+        if (hContinueEvent) { CloseHandle(hContinueEvent); hContinueEvent = nullptr; }
+        for (auto& h : stoppedEvents) if (h) { CloseHandle(h); h = nullptr; }
+        for (auto& h : finishEvents) if (h) { CloseHandle(h); h = nullptr; }
     }
-    vector<bool> GetActiveMarkers() { return active; }
+    std::vector<bool> GetActiveMarkers() { return active; }
     int GetNumMarkers() const { return numMarkers; }
     int GetArraySize() const { return arraySize; }
 private:
     int arraySize = 0;
     int numMarkers = 0;
-    vector<int> sharedArray;
+    std::vector<int> sharedArray;
     CRITICAL_SECTION cs;
     HANDLE hStartEvent;
     HANDLE hContinueEvent;
-    vector<HANDLE> stoppedEvents;
-    vector<HANDLE> finishEvents;
-    vector<HANDLE> threadHandles;
-    vector<DWORD> threadIds;
-    vector<bool> active;
+    std::vector<HANDLE> stoppedEvents;
+    std::vector<HANDLE> finishEvents;
+    std::vector<HANDLE> threadHandles;
+    std::vector<DWORD> threadIds;
+    std::vector<bool> active;
     static DWORD WINAPI MarkerThreadProcStatic(LPVOID lpParam)
     {
         ThreadParams* tp = static_cast<ThreadParams*>(lpParam);
-        if (!tp) return 0;
+        if (nullptr == tp)
+        {
+            return 1;
+        }
         DWORD res = MarkerThreadProc(tp);
         delete tp;
         return res;
     }
     static DWORD MarkerThreadProc(ThreadParams* tp)
     {
-        int id = tp->id;
-        int n = tp->arraySize;
-        vector<int>* pArray = tp->pArray;
+        const int id = tp->id;
+        const int n = tp->arraySize;
+        std::vector<int>* pArray = tp->pArray;
         CRITICAL_SECTION* pCS = tp->pCS;
         HANDLE hStartEvent = tp->hStartEvent;
         HANDLE hContinueEvent = tp->hContinueEvent;
         HANDLE hStoppedEvent = tp->hStoppedEvent;
         HANDLE hFinishEvent = tp->hFinishEvent;
         WaitForSingleObject(hStartEvent, INFINITE);
-        srand(id);
+        srand(static_cast<unsigned int>(id));
         int marks = 0;
+        int idx = 0;
         while (true)
         {
-            int idx = rand() % n;
+            idx = rand() % n;
             EnterCriticalSection(pCS);
             if ((*pArray)[idx] == 0)
             {
                 LeaveCriticalSection(pCS);
-                Sleep(5);
+                Sleep(SLEEP_DURATION_MS);
                 EnterCriticalSection(pCS);
-                if ((*pArray)[idx] == 0)
+                if (0 == (*pArray)[idx])
                 {
                     (*pArray)[idx] = id;
                     marks++;
                     LeaveCriticalSection(pCS);
-                    Sleep(5);
+                    Sleep(SLEEP_DURATION_MS);
                     continue; 
                 }
             }
-            cout << "Marker " << id << " blocked at index " << idx << ". Total marks: " << marks << "\n";
+            std::cout << "Marker " << id << " blocked at index " << idx << ". Total marks: " << marks << "\n";
             LeaveCriticalSection(pCS);
             SetEvent(hStoppedEvent); 
             HANDLE waitHandles[2] = { hContinueEvent, hFinishEvent };
@@ -223,7 +246,7 @@ Simulation RunSimulationForTests(int arraySize, int numMarkers, bool autoTermina
     Simulation sim;
     if (!sim.Start(arraySize, numMarkers))
     {
-        throw runtime_error("Failed to start simulation");
+        throw std::runtime_error("Failed to start simulation");
     }
     sim.WaitAllBlocked();
     if (autoTerminate)
@@ -235,29 +258,29 @@ Simulation RunSimulationForTests(int arraySize, int numMarkers, bool autoTermina
     return sim;
 }
 
-void PrintArray(const vector<int>& arr)
+void PrintArray(const std::vector<int>& arr)
 {
-    cout << "Array: [";
+    std::cout << "Array: [";
     for (size_t i = 0; i < arr.size(); ++i)
     {
-        if (i) cout << ", ";
-        cout << arr[i];
+        if (i) std::cout << ", ";
+        std::cout << arr[i];
     }
-    cout << "]\n";
+    std::cout << "]\n";
 }
 int main()
 {
-    cout << "Simulation (markers, critical section & events)\n";
+    std::cout << "Simulation (markers, critical section & events)\n";
     int arraySize = 0;
-    cout << "Enter array size: ";
-    cin >> arraySize;
+    std::cout << "Enter array size: ";
+    std::cin >> arraySize;
     int N = 0;
-    cout << "Enter number of markers: ";
-    cin >> N;
+    std::cout << "Enter number of markers: ";
+    std::cin >> N;
     Simulation sim;
     if (!sim.Start(arraySize, N))
     {
-        cerr << "Failed to start simulation\n";
+        std::cerr << "Failed to start simulation\n";
         return 1;
     }
     while (true)
@@ -266,20 +289,20 @@ int main()
         bool anyActive = false;
         for (bool b : act) if (b) { anyActive = true; break; }
         if (!anyActive) break;
-        cout << "Waiting for all active markers to block...\n";
+        std::cout << "Waiting for all active markers to block...\n";
         sim.WaitAllBlocked();
         auto snapshot = sim.GetArraySnapshot();
         PrintArray(snapshot);
-        cout << "Enter marker number to terminate (1.." << sim.GetNumMarkers() << "): ";
+        std::cout << "Enter marker number to terminate (1.." << sim.GetNumMarkers() << "): ";
         int toTerminate = 0;
-        cin >> toTerminate;
+        std::cin >> toTerminate;
         sim.TerminateMarker(toTerminate);
         auto snap2 = sim.GetArraySnapshot();
-        cout << "After termination and cleanup:\n";
+        std::cout << "After termination and cleanup:\n";
         PrintArray(snap2);
         sim.ContinueAll();
     }
-    cout << "All markers finished. Final array:\n";
+    std::cout << "All markers finished. Final array:\n";
     PrintArray(sim.GetArraySnapshot());
     sim.WaitAllExited();
     return 0;
