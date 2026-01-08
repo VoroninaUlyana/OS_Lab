@@ -31,10 +31,28 @@ void ReportError(const std::string& message)
 void RunParentMode(const char* exePath);
 void RunChildMode();
 
+void RunInternalTests() 
+{
+    if (CountEvenElements({ 1, 2, 3, 4, 5, 6 }) != 3) 
+    {
+        throw std::logic_error("Unit Test Failed: Case with even numbers");
+    }
+    if (CountEvenElements({ 1, 3, 5 }) != 0) 
+    {
+        throw std::logic_error("Unit Test Failed: Case with no even numbers");
+    }
+    if (CountEvenElements({}) != 0) 
+    {
+        throw std::logic_error("Unit Test Failed: Empty case");
+    }
+    std::cout << "[Test] All internal logic tests passed successfully!\n";
+}
+
 int main(int argc, char* argv[]) 
 {
     try
     {
+        RunInternalTests();
         if (argc > 1 && std::string(argv[1]) == "child")
         {
             std::cout << "[Child] Starting child process...\n";
